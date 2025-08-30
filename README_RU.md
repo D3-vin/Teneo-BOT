@@ -1,3 +1,5 @@
+##📢 Teneo Community Node BOT - v2.0!
+
 <div align="center">
   <p align="center">
     <a href="https://t.me/D3_vin">
@@ -51,7 +53,7 @@
 
 ### 1. Клонирование репозитория
 ```bash
-git clone https://github.com/TellBip/Teneo-BOT.git
+git clone https://github.com/D3-vin/Teneo-BOT.git
 cd Teneo-BOT
 ```
 

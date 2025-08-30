@@ -1,4 +1,4 @@
-##📢 Teneo Community Node BOT - v2.0!
+## 📢 Teneo Community Node BOT - v2.0!
 
 <div align="center">
   <p align="center">

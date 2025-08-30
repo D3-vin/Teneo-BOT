@@ -1,0 +1,61 @@
+general:
+  invite_code: "Svaag" # Пригласительный код для регистрации
+  max_threads: 10  # Настройки потоков
+
+captcha:
+  service: "2captcha" # Сервис решения капчи (2captcha, capmonster, cflsolver)
+  api_key: "api"  # API ключ для сервиса
+
+redirect_settings:  # Настройки редиректа
+  enabled: false
+  email: ""
+  password: ""
+  imap_server: ""
+  use_proxy: false
+
+mail:
+  use_proxy_for_imap: false  # Настройки прокси для IMAP
+
+  use_single_imap:  # Настройки единого IMAP сервера
+    enable: false
+    imap_server: "imap.gmail.com"
+
+  imap_settings:   # Настройки IMAP серверов для различных почтовых провайдеров
+    rambler.ru: "imap.rambler.ru"
+    hotmail.com: "imap-mail.outlook.com"
+    outlook.com: "imap-mail.outlook.com"
+    mail.ru: "imap.mail.ru"
+    gmail.com: "imap.gmail.com"
+    gmx.com: "imap.gmx.com"
+    yahoo.com: "imap.mail.yahoo.com"
+    gmx.net: "imap.gmx.net"
+    gmx.de: "imap.gmx.net"
+    onet.pl: "imap.poczta.onet.pl"
+    onet.com.pl: "imap.poczta.onet.pl"
+    op.pl: "imap.poczta.onet.pl"
+    onet.eu: "imap.poczta.onet.pl"
+    gazeta.pl: "imap.gazeta.pl"
+    ro.ru: "imap.rambler.ru"
+    lenta.ru: "imap.rambler.ru"
+    autorambler.ru: "imap.rambler.ru"
+    myrambler.ru: "imap.rambler.ru"
+    prefarcedemail.com: "imap.notletters.com"
+    prefarmencmail.com: "imap.notletters.com"
+    consaltemail.com: "imap.notletters.com"
+    pragresivemail.com: "imap.notletters.com"
+    belettersmail.com: "imap.notletters.com"
+    onelettersmail.com: "imap.notletters.com"
+    notlettersmail.com: "imap.notletters.com"
+    fumesmail.com: "imap.firstmail.ltd"
+    limandomail.com: "imap.firstmail.ltd"
+    desedumail.com: "imap.firstmail.ltd"
+    derrenmail.com: "imap.firstmail.ltd"
+    chromomail.com: "imap.firstmail.ltd"
+    t-online.de: "secureimap.t-online.de"
+  
+logging:
+  level: "INFO"       # DEBUG/INFO/WARNING/ERROR/SUCCESS
+  rotation: "1 day"   # Ротация файлов логов
+  retention: "7 days" # Хранение файлов логов
+
+

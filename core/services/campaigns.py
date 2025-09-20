@@ -8,7 +8,7 @@ from core.clients.api import get_campaigns as teneo_get_campaigns
 async def get_status(email: str, token: str, name: str, proxy: Optional[str], log):
     campaigns = await teneo_get_campaigns(token, proxy)
     for c in campaigns:
-        if c.get("campaignName") == name:
+        if isinstance(c, dict) and c.get("campaignName") == name:
             completed = c.get("completed", False)
             claimable = c.get("claimable", False)
             #log(f"Campaign '{name}' for {email}: completed={completed}, claimable={claimable}")

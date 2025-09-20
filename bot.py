@@ -92,10 +92,9 @@ class Teneo:
         elif captcha_service == "capmonster":
             self.captcha_solver = ServiceCapmonster(captcha_api_key)
             self.captcha_solver2 = ServiceCapmonster2(captcha_api_key)
-
         elif captcha_service == "cflsolver":
-            self.http_client = AsyncClient()
-            self.captcha_solver = CFLSolver(captcha_api_key, self.http_client)
+            self.captcha_solver = CFLSolver.create_primary(captcha_api_key)
+            self.captcha_solver2 = Service2Captcha2.create_secondary(captcha_api_key)
         else:
             raise ValueError(f"Unsupported captcha service: {captcha_service}")
 
@@ -226,7 +225,11 @@ class Teneo:
 
     async def user_login(self, email: str, password: str, proxy=None):
         try:
-            captcha_token = await self.captcha_solver.solve_captcha()
+            # Check if using CFLSolver and call appropriate method
+            if isinstance(self.captcha_solver, CFLSolver):
+                captcha_token = await self.captcha_solver.solve_captcha_auto()
+            else:
+                captcha_token = await self.captcha_solver.solve_captcha()
             try:
                 result = await teneo_login(email, password, captcha_token, proxy)
                 token = result.get('access_token')
@@ -491,8 +494,24 @@ class Teneo:
                 return False
 
             # Get captcha token
+            self.print_message(email, proxy, Fore.CYAN, "Solving captcha...")
             try:
-                captcha_token = await self.captcha_solver.solve_captcha()
+                # Check if using CFLSolver and call appropriate method
+                if isinstance(self.captcha_solver, CFLSolver):
+                    captcha_token = await self.captcha_solver.solve_captcha_auto()
+                else:
+                    captcha_token = await self.captcha_solver.solve_captcha()
+                    
+                if not captcha_token:
+                    self.print_message(email, proxy, Fore.RED, "Failed to get captcha token")
+                    return False
+                    
+                # Validate captcha token format
+                if len(captcha_token) < 10:
+                    self.print_message(email, proxy, Fore.RED, f"Invalid captcha token length: {len(captcha_token)}")
+                    return False
+                    
+                self.print_message(email, proxy, Fore.GREEN, f"Captcha solved successfully (length: {len(captcha_token)})")
             except Exception as e:
                 self.print_message(email, proxy, Fore.RED, f"Captcha error: {str(e)}")
                 return False
@@ -707,6 +726,16 @@ class Teneo:
                 self.print_message(email, proxy, Fore.RED, "Failed to get token for wallet connection")
                 return False
                 
+            # Check and accept privacy policy if needed
+            try:
+                result = await teneo_isppaccepted(token, proxy)
+                if isinstance(result, dict) and result.get('isppAccepted') is False:
+                    self.print_message(email, proxy, Fore.CYAN, "Accepting privacy policy...")
+                    post_result = await teneo_accept_pp(token, proxy)
+                    self.print_message(email, proxy, Fore.GREEN, "Privacy policy accepted")
+            except Exception as e:
+                self.print_message(email, proxy, Fore.YELLOW, f"Warning: Could not check/accept privacy policy: {e}")
+                
             # Check current wallet status
             wallet_status = await self.check_wallet_status(email, token, proxy)
             
@@ -885,22 +914,22 @@ class Teneo:
             self.save_error('error_twitter.txt', email or '-', msg)
             return None
         # Check campaign status: if claim is already available — claim immediately
-        company_name = "Engage with Teneo on X"
+        company_name = "Engage with Teneo Protocol on X"
         self.log(f"{Fore.CYAN}Checking campaign status '{company_name}' for {email}...{Style.RESET_ALL}")
 
         campaign_status = await self.check_campaign_status(email, token, company_name, proxy)
         
         if campaign_status == True:
-            self.log(f"{Fore.GREEN}Campaign 'Engage with Teneo on X' completed for {email}{Style.RESET_ALL}")
+            self.log(f"{Fore.GREEN}Campaign 'Engage with Teneo Protocol on X' completed for {email}{Style.RESET_ALL}")
             return True
         elif campaign_status == "claimable":
-            self.log(f"{Fore.YELLOW}Campaign 'Engage with Teneo on X' available for completion for {email}{Style.RESET_ALL}")
+            self.log(f"{Fore.YELLOW}Campaign 'Engage with Teneo Protocol on X' available for completion for {email}{Style.RESET_ALL}")
             claimed = await self.claim_x_campaign(email, token, proxy)
             if claimed:
                 return True
             return "claimable"
         else:
-            self.log(f"{Fore.CYAN}Campaign 'Engage with Teneo on X' not yet completed for {email}{Style.RESET_ALL}")
+            self.log(f"{Fore.CYAN}Campaign 'Engage with Teneo Protocol on X' not yet completed for {email}{Style.RESET_ALL}")
             #return False
         # Make POST request to api.deform.cc to get form information
         """try:
@@ -951,9 +980,11 @@ class Teneo:
             return None
         #print("requesting captcha")
         self.log(f"{Fore.CYAN}Requesting captcha for {email}{Style.RESET_ALL}")
-        #captcha_token = await self.captcha_solver2.solve_captcha()
         try:
-            captcha_token = await self.captcha_solver2.solve_captcha()
+            if isinstance(self.captcha_solver2, CFLSolver):
+                captcha_token = await self.captcha_solver2.solve_captcha_auto()
+            else:
+                captcha_token = await self.captcha_solver2.solve_captcha()
         except Exception as e:
             self.print_message(email, proxy, Fore.RED, f"Captcha error: {str(e)}")
             return False
@@ -1037,7 +1068,7 @@ class Teneo:
                             campaign_status = await self.check_campaign_status(email, token, company_name, proxy)
                             if campaign_status == "claimable":
                                 self.log(
-                                    f"{Fore.YELLOW}Campaign 'Engage with Teneo on X' available for completion for {email}{Style.RESET_ALL}"
+                                    f"{Fore.YELLOW}Campaign 'Engage with Teneo Protocol on X' available for completion for {email}{Style.RESET_ALL}"
                                 )
                                 # Try to claim
                                 claimed = await self.claim_x_campaign(email, token, proxy)
@@ -1046,7 +1077,7 @@ class Teneo:
                                 return "claimable"
                             if campaign_status is True:
                                 self.log(
-                                    f"{Fore.GREEN}Campaign 'Engage with Teneo on X' completed for {email}{Style.RESET_ALL}"
+                                    f"{Fore.GREEN}Campaign 'Engage with Teneo Protocol on X' completed for {email}{Style.RESET_ALL}"
                                 )
                                 return True
                             if i < attempts - 1:
@@ -1180,9 +1211,11 @@ class Teneo:
             
         # Request captcha
         self.log(f"{Fore.CYAN}Requesting captcha for {email}{Style.RESET_ALL}")
-        #captcha_token = await self.captcha_solver2.solve_captcha()
         try:
-            captcha_token = await self.captcha_solver2.solve_captcha()
+            if isinstance(self.captcha_solver2, CFLSolver):
+                captcha_token = await self.captcha_solver2.solve_captcha_auto()
+            else:
+                captcha_token = await self.captcha_solver2.solve_captcha()
         except Exception as e:
             self.print_message(email, proxy, Fore.RED, f"Captcha error: {str(e)}")
             return False
@@ -1262,6 +1295,7 @@ class Teneo:
                                 f"{Fore.CYAN}Checking campaign status for {email}... attempt {i+1}/{attempts}{Style.RESET_ALL}"
                             )
                             campaign_status = await self.check_campaign_status(email, token, company_name, proxy)
+                            self.log(f"{Fore.MAGENTA}[DEBUG] Campaign status result: {campaign_status}{Style.RESET_ALL}")
                             if campaign_status == "claimable":
                                 self.log(
                                     f"{Fore.YELLOW}Campaign 'Engage with Teneo on Discord' available for completion for {email}{Style.RESET_ALL}"

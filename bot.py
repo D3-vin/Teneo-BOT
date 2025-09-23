@@ -46,6 +46,8 @@ from Jam_Twitter_API.account_sync import TwitterAccountSync
 from Jam_Twitter_API.errors import TwitterAccountSuspended, TwitterError, IncorrectData, RateLimitError
 from core.services import twitter as twitter_service
 from core.services import discord as discord_service
+from core.services import newsletter as newsletter_service
+from core.services import streaks as streaks_service
 from database import get_database_service, close_database_service
 from core.ui import get_menu
 from core.logging import get_logger
@@ -1208,7 +1210,19 @@ class Teneo:
         except Exception as e:
             self.log(f"{Fore.RED}Error working with wallet for {email}{Style.RESET_ALL}")
             return None
-            
+        # second resp discord
+        try:
+            sec_resp = await discord_service.sec_resp(email, one_time_token, proxy, self.log)
+            if not sec_resp:
+                msg = "Discord server verification failed"
+                self.log(f"{Fore.RED}{msg} for {email}{Style.RESET_ALL}")
+                self.save_error('error_discord.txt', email, msg)
+                return None
+        except Exception as e:
+            msg = f"Error verifying Discord server: {e}"
+            self.log(f"{Fore.RED}{msg} for {email or ''}{Style.RESET_ALL}")
+            self.save_error('error_discord.txt', email, msg)
+            return None
         # Request captcha
         self.log(f"{Fore.CYAN}Requesting captcha for {email}{Style.RESET_ALL}")
         try:
@@ -1295,7 +1309,7 @@ class Teneo:
                                 f"{Fore.CYAN}Checking campaign status for {email}... attempt {i+1}/{attempts}{Style.RESET_ALL}"
                             )
                             campaign_status = await self.check_campaign_status(email, token, company_name, proxy)
-                            self.log(f"{Fore.MAGENTA}[DEBUG] Campaign status result: {campaign_status}{Style.RESET_ALL}")
+                            #self.log(f"{Fore.MAGENTA}[DEBUG] Campaign status result: {campaign_status}{Style.RESET_ALL}")
                             if campaign_status == "claimable":
                                 self.log(
                                     f"{Fore.YELLOW}Campaign 'Engage with Teneo on Discord' available for completion for {email}{Style.RESET_ALL}"
@@ -1385,6 +1399,40 @@ class Teneo:
             self.log(f"{Fore.RED}Error signing wallet for {email}: {e}{Style.RESET_ALL}")
             return None
     
+    async def process_streaks_claim(self, email: str, proxy=None) -> int:
+        """Process streaks claim for a single account and return number of claimed streaks"""
+        try:
+            # Get saved token
+            token = await self.get_saved_token(email)
+            if not token:
+                self.log(f"{Fore.RED}No saved token found for {email}{Style.RESET_ALL}")
+                return 0
+
+            # Claim all available streaks
+            claimed_count = await streaks_service.claim_all_streaks(email, token, proxy, self.log)
+            return claimed_count
+
+        except Exception as e:
+            self.log(f"{Fore.RED}Error processing streaks for {email}: {e}{Style.RESET_ALL}")
+            return 0
+
+    async def process_newsletter_subscription(self, email: str, proxy=None) -> bool:
+        """Process newsletter subscription for a single account"""
+        try:
+            # Get saved token
+            token = await self.get_saved_token(email)
+            if not token:
+                self.log(f"{Fore.RED}No saved token found for {email}{Style.RESET_ALL}")
+                return False
+
+            # Subscribe to newsletter
+            success = await newsletter_service.subscribe(email, token, proxy, self.log)
+            return success
+
+        except Exception as e:
+            self.log(f"{Fore.RED}Error processing newsletter subscription for {email}: {e}{Style.RESET_ALL}")
+            return False
+
     def get_wallet_data(self, email):
         """Get wallet address and private key for email from wallet.txt file"""
         wallet_accounts = self.load_accounts("wallet")
@@ -1559,6 +1607,88 @@ class Teneo:
                 return
 
             if use_proxy_choice == 7:
+                # Newsletter subscription mode
+                accounts = self.load_accounts("farm")
+                if not accounts:
+                    self.log(f"{Fore.RED+Style.BRIGHT}No accounts loaded from data/farm.txt{Style.RESET_ALL}")
+                    return
+
+                use_proxy = True
+                self.menu.display_operation_info("Subscribe to Newsletter", len(accounts))
+
+                if use_proxy:
+                    await self.load_proxies()
+                    if not self.proxies:
+                        self.logger.error("No proxies loaded. Aborting newsletter subscription mode.")
+                        return
+
+                success_count = 0
+                failed_count = 0
+
+                tasks = []
+                for account in accounts:
+                    email = account.get('Email')
+                    if email:
+                        proxy = self.get_next_proxy_for_account(email) if use_proxy else None
+                        tasks.append(self.process_newsletter_subscription(email, proxy))
+
+                if tasks:
+                    results = await asyncio.gather(*tasks, return_exceptions=True)
+                    for result in results:
+                        if isinstance(result, bool):
+                            if result:
+                                success_count += 1
+                            else:
+                                failed_count += 1
+                        else:
+                            failed_count += 1
+
+                    self.log(f"{Fore.CYAN}Newsletter subscription completed: {success_count} successful, {failed_count} failed{Style.RESET_ALL}")
+                return
+
+            if use_proxy_choice == 8:
+                # Claim streaks mode
+                accounts = self.load_accounts("farm")
+                if not accounts:
+                    self.log(f"{Fore.RED+Style.BRIGHT}No accounts loaded from data/farm.txt{Style.RESET_ALL}")
+                    return
+
+                use_proxy = True
+                self.menu.display_operation_info("Claim Streaks", len(accounts))
+
+                if use_proxy:
+                    await self.load_proxies()
+                    if not self.proxies:
+                        self.logger.error("No proxies loaded. Aborting claim streaks mode.")
+                        return
+
+                success_count = 0
+                failed_count = 0
+                total_claimed = 0
+
+                tasks = []
+                for account in accounts:
+                    email = account.get('Email')
+                    if email:
+                        proxy = self.get_next_proxy_for_account(email) if use_proxy else None
+                        tasks.append(self.process_streaks_claim(email, proxy))
+
+                if tasks:
+                    results = await asyncio.gather(*tasks, return_exceptions=True)
+                    for result in results:
+                        if isinstance(result, int):
+                            if result > 0:
+                                success_count += 1
+                                total_claimed += result
+                            else:
+                                failed_count += 1
+                        else:
+                            failed_count += 1
+
+                    self.log(f"{Fore.CYAN}Streak claims completed: {success_count} accounts processed, {total_claimed} streaks claimed, {failed_count} failed{Style.RESET_ALL}")
+                return
+
+            if use_proxy_choice == 9:
                 # Exit mode
                 self.log(f"{Fore.CYAN}Exiting Teneo BOT...{Style.RESET_ALL}")
                 return

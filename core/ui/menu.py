@@ -66,7 +66,9 @@ class TeneoMenu:
             "4 Wallet Connection & Creating smart account",
             "5 Connect Twitter & Claim X Campaign",
             "6 Connect Discord & Claim Discord Campaign",
-            "7 Exit"
+            "7 Subscribe to Teneo Protocol Newsletter",
+            "8 Claim Streak`s",
+            "9 Exit"
         ]
         
         for option in options:
@@ -87,13 +89,13 @@ class TeneoMenu:
         while True:
             try:
                 choice = Prompt.ask(
-                    "\n[bold white]Choose action[/bold white] [1-7]",
-                    choices=["1", "2", "3", "4", "5", "6", "7"],
+                    "\n[bold white]Choose action[/bold white] [1-9]",
+                    choices=["1", "2", "3", "4", "5", "6", "7", "8", "9"],
                     default="1"
                 )
                 return int(choice)
             except ValueError:
-                self.console.print("[red]Invalid input. Please enter a number from 1 to 7.[/red]")
+                self.console.print("[red]Invalid input. Please enter a number from 1 to 9.[/red]")
     
     def display_operation_info(self, operation: str, account_count: int):
         """Отображает информацию о выбранной операции."""

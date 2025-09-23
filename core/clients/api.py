@@ -142,3 +142,26 @@ async def claim_submission(token: str, campaign_type: str = "x", proxy: Optional
     return await api_post(url, payload, headers=headers, proxy=proxy, timeout_seconds=30)
 
 
+async def subscribe_newsletter(token: str, proxy: Optional[str] = None) -> Dict[str, Any]:
+    """Subscribe to Teneo Protocol Newsletter."""
+    url = "https://api.teneo.pro/api/users/marketing-consent"
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = {"consent": True}
+    return await api_post(url, payload, headers=headers, proxy=proxy, timeout_seconds=30)
+
+
+async def get_heartbeat_status(token: str, proxy: Optional[str] = None) -> Dict[str, Any] | List[Any]:
+    """Get heartbeat campaigns status."""
+    url = "https://api.teneo.pro/api/campaigns/heartbeat/status"
+    headers = {"Authorization": f"Bearer {token}"}
+    return await api_get(url, headers=headers, proxy=proxy, timeout_seconds=30)
+
+
+async def claim_streak(token: str, streak_id: str, proxy: Optional[str] = None) -> Dict[str, Any]:
+    """Claim streak reward."""
+    url = f"https://api.teneo.pro/api/campaigns/{streak_id}/claim"
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = {}
+    return await api_post(url, payload, headers=headers, proxy=proxy, timeout_seconds=30)
+
+

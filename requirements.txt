@@ -17,3 +17,5 @@ twocaptcha
 rich
 loguru
 pyyaml
+tortoise-orm
+curl_cffi

@@ -201,3 +201,60 @@ async def bind_and_get_one_time_token(email: str, auth_token: str, proxy: Option
     except Exception as e:
         log(f"{Fore.RED}Unexpected error connecting Discord for {email}: {e}{Fore.RESET}")
         return None
+
+
+async def sec_resp(email: str, one_time_token: str, proxy: Optional[str], log) -> Optional[bool]:
+    """Функция для верификации Discord сервера"""
+    try:
+        log(f"{Fore.CYAN}Verifying Discord server for {email}...{Fore.RESET}")
+        
+        deform_url = "https://api.deform.cc/"
+        payload = {
+            "operationName": "FormResponseDiscordServerVerify",
+            "variables": {
+                "data": {
+                    "oneTimeToken": one_time_token
+                }
+            },
+            "query": "mutation FormResponseDiscordServerVerify($data: FormResponseDiscordServerVerifyInput!) {\n  formResponseDiscordServerVerify(data: $data) {\n    verified\n    __typename\n  }\n}"
+        }
+
+        headers = {
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "en-US,en;q=0.9,id;q=0.8",
+            "Origin": "https://extra-points.teneo.pro",
+            "Referer": "https://extra-points.teneo.pro/",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-site",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+            "Content-Type": "application/json"
+        }
+        
+        connector = ProxyConnector.from_url(proxy) if proxy else None
+        async with ClientSession(connector=connector, timeout=ClientTimeout(total=30)) as session:
+            async with session.post(deform_url, json=payload, headers=headers, ssl=False) as resp:
+                resp.raise_for_status()
+                data = await resp.json()
+                
+                if data.get("errors"):
+                    msg = data["errors"][0].get("message", "Unknown error")
+                    log(f"{Fore.RED}Discord server verification error for {email}: {msg}{Fore.RESET}")
+                    return None
+                    
+                result = data.get("data", {}).get("formResponseDiscordServerVerify")
+                if result:
+                    verified = result.get("verified")
+                    if verified:
+                        log(f"{Fore.GREEN}Discord server verification successful for {email}{Fore.RESET}")
+                        return True
+                    else:
+                        log(f"{Fore.YELLOW}Discord server not verified for {email}{Fore.RESET}")
+                        return False
+                        
+                log(f"{Fore.RED}No verification result in response for {email}{Fore.RESET}")
+                return None
+                
+    except Exception as e:
+        log(f"{Fore.RED}Unexpected error verifying Discord server for {email}: {e}{Fore.RESET}")
+        return None

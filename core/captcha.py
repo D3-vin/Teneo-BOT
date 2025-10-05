@@ -8,7 +8,7 @@ from curl_cffi.requests import AsyncSession
 from core.config.config import get_config
 
 _cfg = get_config()
-CFLSOLVER_BASE_URL = _cfg.get("captcha", "cflsolver_base_url", default="http://185.246.222.137:5074")
+CFLSOLVER_BASE_URL = _cfg.get("captcha", "cflsolver_base_url", default="http://host:5074")
 CAPTCHA_WEBSITE_KEY = _cfg.get("captcha", "website_key", default="0x4AAAAAAAkhmGkb2VS6MRU0")
 CAPTCHA_WEBSITE_URL = _cfg.get("captcha", "website_url", default="https://dashboard.teneo.pro/auth")
 CAPTCHA_WEBSITE_KEY2 = _cfg.get("captcha", "website_key2", default="6LfYWucjAAAAAIAKO0PT4fkjfGddTgyIDqId_hR7")
@@ -88,7 +88,7 @@ class Service2Captcha2:
 class CFLSolver:
     def __init__(
             self,
-            api_key: str = "de6c1275-e6ea-4663-9319-becb447d10d5",
+            api_key: str = "key",
             base_url: Optional[str] = None,
             website_key: Optional[str] = None,
             website_url: Optional[str] = None,
@@ -278,8 +278,8 @@ class sctg:
     
     def __init__(
             self,
-            api_key: str = "de6c1275-e6ea-4663-9319-becb447d10d5",
-            base_url: str = "http://185.246.222.137:5082",
+            api_key: str = "key",
+            base_url: str = "http://host:5082",
             website_key: Optional[str] = None,
             website_url: Optional[str] = None,
             proxy: Optional[str] = None,
@@ -436,6 +436,6 @@ class sctg:
             await session.close()
 
     @classmethod
-    def create_for_secondary(cls, api_key: str = "de6c1275-e6ea-4663-9319-becb447d10d5", **kwargs):
+    def create_for_secondary(cls, api_key: str = "key", **kwargs):
         """Creates sctg instance for secondary config (CAPTCHA_WEBSITE_URL2)"""
         return cls(api_key=api_key, **kwargs)

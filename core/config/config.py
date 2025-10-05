@@ -34,6 +34,12 @@ class YamlConfig:
     def get_max_threads(self) -> int:
         return int(self.get("general", "max_threads", default=10))
 
+    def get_start_delay_min(self) -> float:
+        return float(self.get("general", "start_delay", "min", default=0.3))
+    
+    def get_start_delay_max(self) -> float:
+        return float(self.get("general", "start_delay", "max", default=0.8))
+
     def get_use_proxy_for_imap(self) -> bool:
         return bool(self.get("mail", "use_proxy_for_imap", default=False))
 

@@ -1,6 +1,9 @@
 general:
   invite_code: "Svaag" # Пригласительный код для регистрации
   max_threads: 10  # Настройки потоков
+  start_delay:
+    min: 1  # Минимальная задержка между запуском потоков (секунды)
+    max: 5  # Максимальная задержка между запуском потоков (секунды)
 
 captcha:
   service: "2captcha" # Сервис решения капчи (2captcha, capmonster, cflsolver)
@@ -46,6 +49,7 @@ mail:
     belettersmail.com: "imap.notletters.com"
     onelettersmail.com: "imap.notletters.com"
     notlettersmail.com: "imap.notletters.com"
+    notboxletters.com: "imap.notletters.com"
     fumesmail.com: "imap.firstmail.ltd"
     limandomail.com: "imap.firstmail.ltd"
     desedumail.com: "imap.firstmail.ltd"

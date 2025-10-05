@@ -33,7 +33,7 @@ from core.clients.api import (
     get_campaigns as teneo_get_campaigns,
     claim_submission as teneo_claim_submission,
 )
-import asyncio, json, os, sys, signal
+import asyncio, json, os, sys, signal, random
 from web3 import Web3
 from eth_account import Account
 from eth_account.messages import encode_defunct
@@ -419,6 +419,38 @@ class Teneo:
 
         tasks = [asyncio.create_task(runner(factory)) for factory in factories]
         return await asyncio.gather(*tasks, return_exceptions=True)
+    
+    async def _run_with_delay_and_limit(self, tasks, use_config_delay: bool = True):
+        """Run tasks with startup delay from config and thread limit"""
+        if not tasks:
+            return []
+        
+        # Apply max_threads limit
+        semaphore = asyncio.Semaphore(self.max_threads)
+        
+        # Get delay settings from config
+        cfg = get_config()
+        delay_min = cfg.get_start_delay_min() if use_config_delay else 0.5
+        delay_max = cfg.get_start_delay_max() if use_config_delay else 0.5
+        
+        async def delayed_runner(task, delay):
+            # Add startup delay
+            await asyncio.sleep(delay)
+            async with semaphore:
+                return await task
+        
+        # Create delayed tasks with random delays from config range
+        delayed_tasks = []
+        for i, task in enumerate(tasks):
+            if use_config_delay:
+                # Random delay between min and max for each task
+                delay = random.uniform(delay_min, delay_max) * i
+            else:
+                # Fixed delay for backward compatibility
+                delay = i * 0.5
+            delayed_tasks.append(asyncio.create_task(delayed_runner(task, delay)))
+        
+        return await asyncio.gather(*delayed_tasks, return_exceptions=True)
 
     async def process_auth_batch(self, accounts_batch, use_proxy):
         """Process a batch of accounts for authorization"""
@@ -1572,7 +1604,7 @@ class Teneo:
                         tasks.append(self.connect_twitter(email, private_key, twitter_token, proxy))
 
                 if tasks:
-                    results = await asyncio.gather(*tasks, return_exceptions=True)
+                    results = await self._run_with_delay_and_limit(tasks)
                     success_count = sum(1 for r in results if r is True)
                     failed_count = len(results) - success_count
                     self.log(f"{Fore.CYAN}Twitter processing completed: {success_count} successful, {failed_count} failed{Style.RESET_ALL}")
@@ -1604,7 +1636,7 @@ class Teneo:
                         tasks.append(self.connect_discord(email, private_key, discord_token, proxy))
 
                 if tasks:
-                    results = await asyncio.gather(*tasks, return_exceptions=True)
+                    results = await self._run_with_delay_and_limit(tasks)
                     success_count = sum(1 for r in results if r is True)
                     failed_count = len(results) - success_count
                     self.log(f"{Fore.CYAN}Discord processing completed: {success_count} successful, {failed_count} failed{Style.RESET_ALL}")
@@ -1637,7 +1669,7 @@ class Teneo:
                         tasks.append(self.process_newsletter_subscription(email, proxy))
 
                 if tasks:
-                    results = await asyncio.gather(*tasks, return_exceptions=True)
+                    results = await self._run_with_delay_and_limit(tasks)
                     for result in results:
                         if isinstance(result, bool):
                             if result:
@@ -1678,7 +1710,7 @@ class Teneo:
                         tasks.append(self.process_streaks_claim(email, proxy))
 
                 if tasks:
-                    results = await asyncio.gather(*tasks, return_exceptions=True)
+                    results = await self._run_with_delay_and_limit(tasks)
                     for result in results:
                         if isinstance(result, int):
                             if result > 0:
@@ -1725,7 +1757,8 @@ class Teneo:
                         tasks.append(self.process_accounts(email, password, use_proxy))
 
                 if tasks:
-                    await asyncio.gather(*tasks, return_exceptions=True)
+                    # Use new method with delay and thread limiting
+                    await self._run_with_delay_and_limit(tasks)
                 
                 if self.running:  # Only sleep if still running
                     await asyncio.sleep(10)

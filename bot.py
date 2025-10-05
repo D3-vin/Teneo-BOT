@@ -8,7 +8,7 @@ from fake_useragent import FakeUserAgent
 from datetime import datetime
 from colorama import *
 from core.config.config import get_config
-from core.captcha import ServiceCapmonster, Service2Captcha, CFLSolver, Service2Captcha2, ServiceCapmonster2
+from core.captcha import ServiceCapmonster, Service2Captcha, CFLSolver, Service2Captcha2, ServiceCapmonster2, sctg
 from core.utils.accounts import (
     load_accounts as load_accounts_util,
     save_results as save_results_util,
@@ -33,7 +33,7 @@ from core.clients.api import (
     get_campaigns as teneo_get_campaigns,
     claim_submission as teneo_claim_submission,
 )
-import asyncio, json, os, sys
+import asyncio, json, os, sys, signal
 from web3 import Web3
 from eth_account import Account
 from eth_account.messages import encode_defunct
@@ -96,7 +96,7 @@ class Teneo:
             self.captcha_solver2 = ServiceCapmonster2(captcha_api_key)
         elif captcha_service == "cflsolver":
             self.captcha_solver = CFLSolver.create_primary(captcha_api_key)
-            self.captcha_solver2 = Service2Captcha2.create_secondary(captcha_api_key)
+            self.captcha_solver2 = sctg(captcha_api_key)
         else:
             raise ValueError(f"Unsupported captcha service: {captcha_service}")
 
@@ -108,8 +108,9 @@ class Teneo:
         return self
 
     async def stop(self):
-        """Close session"""
+        """Close session immediately"""
         self.running = False
+        
         if self.session:
             await self.session.close()
             self.session = None
@@ -280,10 +281,13 @@ class Teneo:
                         ping_task = None
 
                         async def send_ping_message():
-                            while True:
-                                await wss.send_json({"type":"PING"})
-                                self.logger.debug("Node Connection Established...")
-                                await asyncio.sleep(10)
+                            while self.running:
+                                try:
+                                    await wss.send_json({"type":"PING"})
+                                    self.logger.debug("Node Connection Established...")
+                                    await asyncio.sleep(10)
+                                except Exception:
+                                    break
 
                         async for msg in wss:
                             try:
@@ -916,22 +920,22 @@ class Teneo:
             self.save_error('error_twitter.txt', email or '-', msg)
             return None
         # Check campaign status: if claim is already available — claim immediately
-        company_name = "Engage with Teneo Protocol on X"
+        company_name = "Engage on X"
         self.log(f"{Fore.CYAN}Checking campaign status '{company_name}' for {email}...{Style.RESET_ALL}")
 
         campaign_status = await self.check_campaign_status(email, token, company_name, proxy)
         
         if campaign_status == True:
-            self.log(f"{Fore.GREEN}Campaign 'Engage with Teneo Protocol on X' completed for {email}{Style.RESET_ALL}")
+            self.log(f"{Fore.GREEN}Campaign 'Engage on X' completed for {email}{Style.RESET_ALL}")
             return True
         elif campaign_status == "claimable":
-            self.log(f"{Fore.YELLOW}Campaign 'Engage with Teneo Protocol on X' available for completion for {email}{Style.RESET_ALL}")
+            self.log(f"{Fore.YELLOW}Campaign 'Engage on X' available for completion for {email}{Style.RESET_ALL}")
             claimed = await self.claim_x_campaign(email, token, proxy)
             if claimed:
                 return True
             return "claimable"
         else:
-            self.log(f"{Fore.CYAN}Campaign 'Engage with Teneo Protocol on X' not yet completed for {email}{Style.RESET_ALL}")
+            self.log(f"{Fore.CYAN}Campaign 'Engage on X' not yet completed for {email}{Style.RESET_ALL}")
             #return False
         # Make POST request to api.deform.cc to get form information
         """try:
@@ -1070,7 +1074,7 @@ class Teneo:
                             campaign_status = await self.check_campaign_status(email, token, company_name, proxy)
                             if campaign_status == "claimable":
                                 self.log(
-                                    f"{Fore.YELLOW}Campaign 'Engage with Teneo Protocol on X' available for completion for {email}{Style.RESET_ALL}"
+                                    f"{Fore.YELLOW}Campaign 'Engage on X' available for completion for {email}{Style.RESET_ALL}"
                                 )
                                 # Try to claim
                                 claimed = await self.claim_x_campaign(email, token, proxy)
@@ -1079,7 +1083,7 @@ class Teneo:
                                 return "claimable"
                             if campaign_status is True:
                                 self.log(
-                                    f"{Fore.GREEN}Campaign 'Engage with Teneo Protocol on X' completed for {email}{Style.RESET_ALL}"
+                                    f"{Fore.GREEN}Campaign 'Engage on X' completed for {email}{Style.RESET_ALL}"
                                 )
                                 return True
                             if i < attempts - 1:
@@ -1720,8 +1724,11 @@ class Teneo:
                     if "@" in email and password:
                         tasks.append(self.process_accounts(email, password, use_proxy))
 
-                await asyncio.gather(*tasks)
-                await asyncio.sleep(10)
+                if tasks:
+                    await asyncio.gather(*tasks, return_exceptions=True)
+                
+                if self.running:  # Only sleep if still running
+                    await asyncio.sleep(10)
 
         except asyncio.CancelledError:
             # Propagate cancellation without logging as error
@@ -1746,5 +1753,8 @@ if __name__ == "__main__":
         
         asyncio.run(run())
     except KeyboardInterrupt:
-        get_logger().info("[ EXIT ] Teneo - BOT")
+        # Immediate exit on Ctrl+C
         sys.exit(0)
+    except Exception as e:
+        get_logger().error(f"Fatal error: {e}")
+        sys.exit(1)
